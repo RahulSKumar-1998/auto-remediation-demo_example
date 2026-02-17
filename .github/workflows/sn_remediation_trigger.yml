@@ -14,7 +14,6 @@ jobs:
       actions: read
     
     steps:
-    steps:
       - name: Checkout Code
         uses: actions/checkout@v3
 
