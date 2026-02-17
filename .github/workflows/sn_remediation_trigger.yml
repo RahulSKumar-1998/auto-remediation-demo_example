@@ -54,6 +54,10 @@ jobs:
           git commit -m "Trigger Remediation for $INC_NUM"
           git push origin $BRANCH_NAME
           
+          # Capture the new commit SHA
+          COMMIT_SHA=$(git rev-parse HEAD)
+          echo "COMMIT_SHA=$COMMIT_SHA" >> $GITHUB_ENV
+          
           # 4. Create Pull Request
           gh pr create --title "Security Remediation: $INC_NUM" --body "Automated remediation trigger for incident $INC_NUM. <br> Please review the attached SARIF alerts and Copilot suggestions." --base main --head $BRANCH_NAME
 
@@ -63,3 +67,4 @@ jobs:
           sarif_file: results.sarif
           category: blackduck-import
           ref: refs/heads/remediation/incident-${{ github.event.client_payload.incident_number }}
+          sha: ${{ env.COMMIT_SHA }}
