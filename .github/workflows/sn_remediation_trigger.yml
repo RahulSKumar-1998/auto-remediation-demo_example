@@ -1,0 +1,44 @@
+name: ServiceNow Remediation Trigger
+
+on:
+  repository_dispatch:
+    types: [trigger_remediation]
+
+jobs:
+  remediate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install Dependencies
+        run: |
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          # Ensure utility scripts are runnable
+          
+      - name: Process Vulnerability Payload
+        run: |
+          echo "Processing incident ${{ github.event.client_payload.incident_number }}"
+          # In a real scenario, we might pass the full JSON. 
+          # Here we rely on the repository's sample file for the demo, 
+          # or we could write the payload to a file.
+          
+          # Example: Pass payload to worker
+          PAYLOAD='${{ toJSON(github.event.client_payload) }}'
+          python remediation_worker.py --payload "$PAYLOAD" --output results.sarif
+
+      - name: Upload SARIF to GitHub
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: results.sarif
+          category: blackduck-import
