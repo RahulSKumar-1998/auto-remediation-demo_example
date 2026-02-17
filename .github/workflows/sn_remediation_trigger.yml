@@ -14,6 +14,7 @@ jobs:
       actions: read
     
     steps:
+    steps:
       - name: Checkout Code
         uses: actions/checkout@v3
 
@@ -22,11 +23,37 @@ jobs:
         with:
           python-version: '3.9'
 
+      - name: Create Remediation Branch
+        id: create_branch
+        run: |
+          # 1. Config logic
+          INC_NUM="${{ github.event.client_payload.incident_number }}"
+          BRANCH_NAME="remediation/incident-$INC_NUM"
+          echo "INC_NUM=$INC_NUM" >> $GITHUB_ENV
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+          
+          # 2. Create Branch & Commit
+          git config --global user.name "ServiceNow Bot"
+          git config --global user.email "bot@example.com"
+          git checkout -b $BRANCH_NAME
+          
+          # 3. Make a change (Timestamp log)
+          date >> remediation_trigger.log
+          git add remediation_trigger.log
+          git commit -m "Trigger Remediation for $INC_NUM"
+          
+          # 4. Push Branch
+          git push origin $BRANCH_NAME
+          
+          # 5. Capture SHA
+          COMMIT_SHA=$(git rev-parse HEAD)
+          echo "COMMIT_SHA=$COMMIT_SHA" >> $GITHUB_ENV
+
       - name: Install Dependencies
         run: |
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          # Ensure utility scripts are runnable
-          
+
+      # CodeQL Scan - Runs on the NEW commit (checked out above)
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v2
         with:
@@ -39,44 +66,26 @@ jobs:
         uses: github/codeql-action/analyze@v2
         with:
           category: "/language:java-python"
-          
+          ref: refs/heads/${{ env.BRANCH_NAME }}
+          sha: ${{ env.COMMIT_SHA }}
+
+      # Black Duck Processing
       - name: Process Vulnerability Payload
         run: |
-          echo "Processing incident ${{ github.event.client_payload.incident_number }}"
+          echo "Processing incident ${{ env.INC_NUM }}"
           PAYLOAD='${{ toJSON(github.event.client_payload) }}'
           python remediation_worker.py --payload "$PAYLOAD" --output results.sarif
-
-      - name: Create Remediation Branch and PR
-        id: create_pr
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # 1. Config logic
-          INC_NUM="${{ github.event.client_payload.incident_number }}"
-          BRANCH_NAME="remediation/incident-$INC_NUM"
-          
-          # 2. Create Branch
-          git config --global user.name "ServiceNow Bot"
-          git config --global user.email "bot@example.com"
-          git checkout -b $BRANCH_NAME
-          
-          # 3. Commit trigger
-          date >> remediation_trigger.log
-          git add remediation_trigger.log
-          git commit -m "Trigger Remediation for $INC_NUM"
-          git push origin $BRANCH_NAME
-          
-          # Capture the new commit SHA
-          COMMIT_SHA=$(git rev-parse HEAD)
-          echo "COMMIT_SHA=$COMMIT_SHA" >> $GITHUB_ENV
-          
-          # 4. Create Pull Request
-          gh pr create --title "Security Remediation: $INC_NUM" --body "Automated remediation trigger for incident $INC_NUM. <br> **CodeQL Scan**: Running full project scan.<br> **Black Duck**: Attached alerts from external scanner." --base main --head $BRANCH_NAME
 
       - name: Upload BlackDuck SARIF
         uses: github/codeql-action/upload-sarif@v2
         with:
           sarif_file: results.sarif
           category: blackduck-import
-          ref: refs/heads/remediation/incident-${{ github.event.client_payload.incident_number }}
+          ref: refs/heads/${{ env.BRANCH_NAME }}
           sha: ${{ env.COMMIT_SHA }}
+
+      - name: Create Pull Request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create --title "Security Remediation: ${{ env.INC_NUM }}" --body "Automated remediation trigger for incident ${{ env.INC_NUM }}. <br> **CodeQL Scan**: Scanned commit ${{ env.COMMIT_SHA }}.<br> **Black Duck**: Attached alerts." --base main --head ${{ env.BRANCH_NAME }}
