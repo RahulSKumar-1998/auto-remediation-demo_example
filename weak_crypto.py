@@ -11,3 +11,4 @@ key = os.urandom(32)
 data = b"Secret Message"
 encrypted = encrypt_data(data, key)
 print(encrypted)
+# Trigger Scan
