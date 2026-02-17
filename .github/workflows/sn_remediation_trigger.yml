@@ -29,16 +29,36 @@ jobs:
       - name: Process Vulnerability Payload
         run: |
           echo "Processing incident ${{ github.event.client_payload.incident_number }}"
-          # In a real scenario, we might pass the full JSON. 
-          # Here we rely on the repository's sample file for the demo, 
-          # or we could write the payload to a file.
-          
-          # Example: Pass payload to worker
           PAYLOAD='${{ toJSON(github.event.client_payload) }}'
           python remediation_worker.py --payload "$PAYLOAD" --output results.sarif
+
+      - name: Create Remediation Branch and PR
+        id: create_pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 1. Config logic
+          INC_NUM="${{ github.event.client_payload.incident_number }}"
+          BRANCH_NAME="remediation/incident-$INC_NUM"
+          
+          # 2. Create Branch
+          git config --global user.name "ServiceNow Bot"
+          git config --global user.email "bot@example.com"
+          git checkout -b $BRANCH_NAME
+          
+          # 3. Make a change to allow PR creation (if content is identical to main)
+          # We append a timestamp to a log file
+          date >> remediation_trigger.log
+          git add remediation_trigger.log
+          git commit -m "Trigger Remediation for $INC_NUM"
+          git push origin $BRANCH_NAME
+          
+          # 4. Create Pull Request
+          gh pr create --title "Security Remediation: $INC_NUM" --body "Automated remediation trigger for incident $INC_NUM. <br> Please review the attached SARIF alerts and Copilot suggestions." --base main --head $BRANCH_NAME
 
       - name: Upload SARIF to GitHub
         uses: github/codeql-action/upload-sarif@v2
         with:
           sarif_file: results.sarif
           category: blackduck-import
+          ref: refs/heads/remediation/incident-${{ github.event.client_payload.incident_number }}
