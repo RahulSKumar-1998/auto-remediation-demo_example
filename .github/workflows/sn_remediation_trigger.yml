@@ -27,6 +27,19 @@ jobs:
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           # Ensure utility scripts are runnable
           
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v2
+        with:
+          languages: 'java,python'
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v2
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
+        with:
+          category: "/language:java-python"
+          
       - name: Process Vulnerability Payload
         run: |
           echo "Processing incident ${{ github.event.client_payload.incident_number }}"
@@ -47,8 +60,7 @@ jobs:
           git config --global user.email "bot@example.com"
           git checkout -b $BRANCH_NAME
           
-          # 3. Make a change to allow PR creation (if content is identical to main)
-          # We append a timestamp to a log file
+          # 3. Commit trigger
           date >> remediation_trigger.log
           git add remediation_trigger.log
           git commit -m "Trigger Remediation for $INC_NUM"
@@ -59,9 +71,9 @@ jobs:
           echo "COMMIT_SHA=$COMMIT_SHA" >> $GITHUB_ENV
           
           # 4. Create Pull Request
-          gh pr create --title "Security Remediation: $INC_NUM" --body "Automated remediation trigger for incident $INC_NUM. <br> Please review the attached SARIF alerts and Copilot suggestions." --base main --head $BRANCH_NAME
+          gh pr create --title "Security Remediation: $INC_NUM" --body "Automated remediation trigger for incident $INC_NUM. <br> **CodeQL Scan**: Running full project scan.<br> **Black Duck**: Attached alerts from external scanner." --base main --head $BRANCH_NAME
 
-      - name: Upload SARIF to GitHub
+      - name: Upload BlackDuck SARIF
         uses: github/codeql-action/upload-sarif@v2
         with:
           sarif_file: results.sarif
