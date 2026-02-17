@@ -89,4 +89,15 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh pr create --title "Security Remediation: ${{ env.INC_NUM }}" --body "Automated remediation trigger for incident ${{ env.INC_NUM }}. <br> **CodeQL Scan**: Scanned commit ${{ env.COMMIT_SHA }}.<br> **Black Duck**: Attached alerts." --base main --head ${{ env.BRANCH_NAME }}
+          # 4. Create Pull Request & Capture URL
+          PR_URL=$(gh pr create --title "Security Remediation: ${{ env.INC_NUM }}" --body "Automated remediation trigger for incident ${{ env.INC_NUM }}. <br> **CodeQL Scan**: Scanned commit ${{ env.COMMIT_SHA }}.<br> **Black Duck**: Attached alerts." --base main --head ${{ env.BRANCH_NAME }})
+          echo "PR_URL=$PR_URL" >> $GITHUB_ENV
+          
+      - name: Post Remediation Suggestions
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Posting fixes to PR: ${{ env.PR_URL }}"
+          # Reuse payload processing logic to get vuln list, but mode=fixes
+          PAYLOAD='${{ toJSON(github.event.client_payload) }}'
+          python remediation_worker.py --mode fixes --payload "$PAYLOAD" --pr-url "${{ env.PR_URL }}"
