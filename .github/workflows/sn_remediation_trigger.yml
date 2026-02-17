@@ -36,10 +36,13 @@ jobs:
           git config --global user.email "bot@example.com"
           git checkout -b $BRANCH_NAME
           
-          # 3. Make a change (Timestamp log)
+          # 3. Make a change (Timestamp log AND touch vulnerable files)
           date >> remediation_trigger.log
-          git add remediation_trigger.log
-          git commit -m "Trigger Remediation for $INC_NUM"
+          echo "// Trigger Scan" >> src/main/java/com/example/vuln/SQLInjection.java
+          echo "# Trigger Scan" >> weak_crypto.py
+          
+          git add remediation_trigger.log src/main/java/com/example/vuln/SQLInjection.java weak_crypto.py
+          git commit -m "Trigger Remediation for $INC_NUM (Touch vulnerable files)"
           
           # 4. Push Branch
           git push origin $BRANCH_NAME
@@ -64,7 +67,6 @@ jobs:
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v2
         with:
-          category: "/language:java-python"
           ref: refs/heads/${{ env.BRANCH_NAME }}
           sha: ${{ env.COMMIT_SHA }}
 
