@@ -29,6 +29,7 @@ jobs:
       - name: Trigger Orchestrator
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COPILOT_API_TOKEN: ${{ secrets.COPILOT_API_TOKEN }}
           SNOW_INSTANCE: ${{ secrets.SNOW_INSTANCE }}
           SNOW_USER: ${{ secrets.SNOW_USER }}
           SNOW_PASS: ${{ secrets.SNOW_PASS }}
