@@ -71,18 +71,21 @@ def run_remediation(incident_number, input_file="sample_blackduck_scan.json", ou
             repo_data = gh_client.create_repo(repo_name)
             full_repo_name = repo_data.get("full_name", f"demo-user/{repo_name}") if repo_data else f"demo-user/{repo_name}"
         
-        # KEY FIX: Helper to ensure CodeQL works -> Push pom.xml to MAIN first
-        print("[*] Pushing pom.xml to main (Required for CodeQL Java analysis)...")
+        # Optional: Push build config if present
         if os.path.exists("pom.xml"):
+            print("[*] Pushing pom.xml to main (Required for CodeQL Java analysis)...")
             with open("pom.xml", "r") as f:
                 gh_client.push_file(full_repo_name, "pom.xml", f.read(), "Add Maven build configuration")
+        else:
+            print("[~] Skipping pom.xml (not found locally).")
         
-        # KEY FIX 2: Force CodeQL to scan Python by adding a Workflow file
-        print("[*] Pushing CodeQL Workflow to main (Forces Python + Java scan)...")
+        # Optional: Push CodeQL workflow if present
         if os.path.exists("codeql-analysis.yml"):
+            print("[*] Pushing CodeQL Workflow to main...")
             with open("codeql-analysis.yml", "r") as f:
-                # We update the file content to ensure it picks up the "Manual Build" change
                 gh_client.push_file(full_repo_name, ".github/workflows/codeql.yml", f.read(), "Fix CodeQL Build Configuration")
+        else:
+            print("[~] Skipping codeql-analysis.yml (not found locally).")
         
         # Step B: Create a Feature Branch & PR (Standard Developer Workflow)
         
@@ -90,40 +93,20 @@ def run_remediation(incident_number, input_file="sample_blackduck_scan.json", ou
         print(f"[*] Creating feature branch '{feature_branch}'...")
         gh_client.create_branch(full_repo_name, base_branch, feature_branch)
         
-        print("[*] Pushing NEW vulnerable code artifacts to feature branch...")
+        # Dynamic Discovery: Push vulnerable files referenced in the scan results
+        print("[*] Discovering vulnerable files from scan results...")
+        vuln_files = list({v.get("location") for v in vulnerabilities if v.get("location")})
+        print(f"[+] Found {len(vuln_files)} unique file(s) referenced in scan.")
         
-        timestamp_comment_java = f"\n// Auto-generated update: {int(time.time())}"
-        timestamp_comment_python = f"\n# Auto-generated update: {int(time.time())}"
-        
-        # 1. SQL Injection
-        with open("src/main/java/com/example/vuln/SQLInjection.java", "r") as f:
-            content = f.read() + timestamp_comment_java
-            gh_client.push_file(full_repo_name, "src/main/java/com/example/vuln/SQLInjection.java", content, "Add SQL Injection sample", branch=feature_branch)
-
-        # 2. XSS
-        with open("src/main/java/com/example/vuln/XSS.java", "r") as f:
-            content = f.read() + timestamp_comment_java
-            gh_client.push_file(full_repo_name, "src/main/java/com/example/vuln/XSS.java", content, "Add XSS sample", branch=feature_branch)
-
-        # 3. Weak Crypto (Python)
-        with open("weak_crypto.py", "r") as f:
-            content = f.read() + timestamp_comment_python
-            gh_client.push_file(full_repo_name, "weak_crypto.py", content, "Add weak crypto sample", branch=feature_branch)
-
-        # 3. FIX BUILD: Push Database.java and UserAuth.java (with import) to ensure compilation
-        # Even though these are old samples, they might exist in the repo and break the build if incomplete.
-        print("[*] Ensuring build dependencies (Database.java) are present...")
-        with open("src/main/java/com/example/util/Database.java", "r") as f:
-             gh_client.push_file(full_repo_name, "src/main/java/com/example/util/Database.java", f.read(), "Ensure Database helper exists", branch=feature_branch)
-
-        with open("src/main/java/com/example/auth/UserAuth.java", "r") as f:
-             # Inject the missing import if needed
-             original_content = f.read()
-             if "import com.example.util.Database;" not in original_content:
-                 fixed_content = "package com.example.auth;\nimport com.example.util.Database;\n" + original_content.replace("package com.example.auth;", "")
-             else:
-                 fixed_content = original_content
-             gh_client.push_file(full_repo_name, "src/main/java/com/example/auth/UserAuth.java", fixed_content, "Fix UserAuth compilation (add import)", branch=feature_branch)
+        timestamp_suffix = f"\n# Auto-trigger: {int(time.time())}\n"
+        for file_path in vuln_files:
+            if os.path.exists(file_path):
+                with open(file_path, "r", encoding="utf-8") as f:
+                    content = f.read() + timestamp_suffix
+                gh_client.push_file(full_repo_name, file_path, content, f"Push {os.path.basename(file_path)} for analysis", branch=feature_branch)
+                print(f"    [+] Pushed: {file_path}")
+            else:
+                print(f"    [~] Skipped (not found locally): {file_path}")
 
         print("[*] creating Pull Request for vulnerable code...")
         pr_title = f"{incident_name} [{incident_number}]"
@@ -162,18 +145,21 @@ def run_remediation(incident_number, input_file="sample_blackduck_scan.json", ou
         repo_data = gh_client.create_repo(repo_name)
         full_repo_name = repo_data.get("full_name", f"demo-user/{repo_name}") if repo_data else f"demo-user/{repo_name}"
 
-    # KEY FIX: Helper to ensure CodeQL works -> Push pom.xml to MAIN first
-    print("[*] Pushing pom.xml to main (Required for CodeQL Java analysis)...")
+    # Optional: Push build config if present
     if os.path.exists("pom.xml"):
+        print("[*] Pushing pom.xml to main (Required for CodeQL Java analysis)...")
         with open("pom.xml", "r") as f:
             gh_client.push_file(full_repo_name, "pom.xml", f.read(), "Add Maven build configuration")
+    else:
+        print("[~] Skipping pom.xml (not found locally).")
     
-    # KEY FIX 2: Force CodeQL to scan Python by adding a Workflow file
-    print("[*] Pushing CodeQL Workflow to main (Forces Python + Java scan)...")
+    # Optional: Push CodeQL workflow if present
     if os.path.exists("codeql-analysis.yml"):
+        print("[*] Pushing CodeQL Workflow to main...")
         with open("codeql-analysis.yml", "r") as f:
-            # We update the file content to ensure it picks up the "Manual Build" change
             gh_client.push_file(full_repo_name, ".github/workflows/codeql.yml", f.read(), "Fix CodeQL Build Configuration")
+    else:
+        print("[~] Skipping codeql-analysis.yml (not found locally).")
             
     # KEY FIX 3: Push the Auto Remediation Worker workflow
     print("[*] Pushing Auto-Remediate Workflow to main...")
@@ -209,37 +195,29 @@ def run_remediation(incident_number, input_file="sample_blackduck_scan.json", ou
                 gh_client.push_file(full_repo_name, file_name, f.read(), f"Update Orchestrator dependency: {file_name}")
     
     
-    # Push vulnerable code (Simulating the state of the repo)
-    print("\n[*] Pushing vulnerable code artifacts...")
-    
-    # Database Helper for UserAuth/SQLi
-    with open("src/main/java/com/example/util/Database.java", "r") as f:
-        gh_client.push_file(full_repo_name, "src/main/java/com/example/util/Database.java", f.read(), "Add database helper")
-
-    # New Vulnerability Files
-    with open("src/main/java/com/example/vuln/SQLInjection.java", "r") as f:
-        gh_client.push_file(full_repo_name, "src/main/java/com/example/vuln/SQLInjection.java", f.read(), "Add SQL Injection sample")
-
-    with open("src/main/java/com/example/vuln/XSS.java", "r") as f:
-        gh_client.push_file(full_repo_name, "src/main/java/com/example/vuln/XSS.java", f.read(), "Add XSS sample")
-    
-    with open("weak_crypto.py", "r") as f:
-        gh_client.push_file(full_repo_name, "weak_crypto.py", f.read(), "Add weak crypto sample")
+    # Dynamic Discovery: Push vulnerable files referenced in the scan results to main
+    print("\n[*] Discovering vulnerable files from scan results...")
+    vuln_files = list({v.get("location") for v in vulnerabilities if v.get("location")})
+    print(f"[+] Found {len(vuln_files)} unique file(s) referenced in scan.")
+    for file_path in vuln_files:
+        if os.path.exists(file_path):
+            with open(file_path, "r", encoding="utf-8") as f:
+                gh_client.push_file(full_repo_name, file_path, f.read(), f"Push {os.path.basename(file_path)} for analysis")
+            print(f"    [+] Pushed: {file_path}")
+        else:
+            print(f"    [~] Skipped (not found locally): {file_path}")
 
     # Step C: Trigger GitHub Copilot Autofix (via PR)
     print("\n--- Triggering GitHub Advanced Security (Copilot Autofix) ---")
     
-    # We create a specific branch just for triggering the SARIF upload and Autofix
     ghas_branch = f"submit-vulnerability-ghas-{int(time.time())}"
     print(f"[*] Creating branch '{ghas_branch}' for GHAS trigger...")
     gh_client.create_branch(full_repo_name, base_branch, ghas_branch)
 
-    # KEY FIX: Must push a commit to this branch so it differs from Main, otherwise PR creation fails
+    # Push a lightweight trigger commit so the branch differs from main (required for PR creation)
     print("[*] Pushing trigger commit to GHAS branch...")
-    with open("unsafe.py", "r") as f:
-        # Append a newline/comment to force a SHA change
-        trigger_content = f.read() + f"\n# GHAS Trigger: {int(time.time())}"
-        gh_client.push_file(full_repo_name, "unsafe.py", trigger_content, "Trigger GHAS Scan", branch=ghas_branch)
+    trigger_content = f"# Remediation trigger for {incident_number}\n# Timestamp: {int(time.time())}\n"
+    gh_client.push_file(full_repo_name, "remediation_trigger.txt", trigger_content, f"Trigger GHAS Scan for {incident_number}", branch=ghas_branch)
     
     # Create a PR for this branch so Autofix has somewhere to post
     print("[*] Creating PR for GHAS Analysis...")
