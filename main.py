@@ -205,7 +205,7 @@ def run_remediation(incident_number, input_file="sample_blackduck_scan.json", ou
     
     
     # Push vulnerable code (Simulating the state of the repo)
-    print("[*] Pushing vulnerable code artifacts...")
+    print("\n[*] Pushing vulnerable code artifacts...")
     
     # Database Helper for UserAuth/SQLi
     with open("src/main/java/com/example/util/Database.java", "r") as f:
@@ -221,12 +221,8 @@ def run_remediation(incident_number, input_file="sample_blackduck_scan.json", ou
     with open("weak_crypto.py", "r") as f:
         gh_client.push_file(full_repo_name, "weak_crypto.py", f.read(), "Add weak crypto sample")
 
-    # Step B: Skipped (Vertex AI Remediation removed)
-    print("\n--- Phase 1: Vertex AI Remediation (Skipped/Removed) ---")
-
-
-    # Step C: Trigger GHAS (GitHub Copilot Autofix)
-    print("\n--- Phase 2: Triggering GitHub Advanced Security (Copilot Autofix) ---")
+    # Step C: Trigger GitHub Copilot Autofix (via PR)
+    print("\n--- Triggering GitHub Advanced Security (Copilot Autofix) ---")
     
     # We create a specific branch just for triggering the SARIF upload and Autofix
     ghas_branch = f"submit-vulnerability-ghas-{int(time.time())}"
