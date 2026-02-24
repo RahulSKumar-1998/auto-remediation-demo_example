@@ -58,8 +58,13 @@ def run_remediation(incident_number, input_file="sample_blackduck_scan.json", ou
     if mode == 'ghas':
         # Step A: Ensure Repo Exists
         print(f"[*] Ensuring repository '{repo_name}' exists...")
-        repo_data = gh_client.create_repo(repo_name)
-        full_repo_name = repo_data.get("full_name", f"demo-user/{repo_name}") if repo_data else f"demo-user/{repo_name}"
+        env_repo = os.environ.get("GITHUB_REPOSITORY")
+        if env_repo:
+            print(f"[*] Running in GitHub Actions. Using exact repo: {env_repo}")
+            full_repo_name = env_repo
+        else:
+            repo_data = gh_client.create_repo(repo_name)
+            full_repo_name = repo_data.get("full_name", f"demo-user/{repo_name}") if repo_data else f"demo-user/{repo_name}"
         
         # KEY FIX: Helper to ensure CodeQL works -> Push pom.xml to MAIN first
         print("[*] Pushing pom.xml to main (Required for CodeQL Java analysis)...")
@@ -144,8 +149,13 @@ def run_remediation(incident_number, input_file="sample_blackduck_scan.json", ou
     
     # Step A: Ensure Repo Exists & Has Code (For Demo purposes)
     print(f"[*] Ensuring repository '{repo_name}' exists...")
-    repo_data = gh_client.create_repo(repo_name)
-    full_repo_name = repo_data.get("full_name", f"demo-user/{repo_name}") if repo_data else f"demo-user/{repo_name}"
+    env_repo = os.environ.get("GITHUB_REPOSITORY")
+    if env_repo:
+        print(f"[*] Running in GitHub Actions. Using exact repo: {env_repo}")
+        full_repo_name = env_repo
+    else:
+        repo_data = gh_client.create_repo(repo_name)
+        full_repo_name = repo_data.get("full_name", f"demo-user/{repo_name}") if repo_data else f"demo-user/{repo_name}"
 
     # KEY FIX: Helper to ensure CodeQL works -> Push pom.xml to MAIN first
     print("[*] Pushing pom.xml to main (Required for CodeQL Java analysis)...")
