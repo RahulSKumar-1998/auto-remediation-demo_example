@@ -27,7 +27,12 @@ def run_remediation(incident_number, input_file="sample_blackduck_scan.json", ou
     if demo_mode:
         print("[*] Demo mode enabled. API calls will be mocked.")
     
-    gh_client = GitHubClient(token=None if demo_mode else os.environ.get("GITHUB_TOKEN"), use_env=not demo_mode)
+    # Prefer a PAT (`COPILOT_API_TOKEN`) over `GITHUB_TOKEN` to allow PR creation to recursively trigger Actions
+    gh_token = os.environ.get("COPILOT_API_TOKEN") or os.environ.get("GITHUB_TOKEN")
+    if demo_mode:
+        gh_token = None
+        
+    gh_client = GitHubClient(token=gh_token, use_env=not demo_mode)
     sn_client = ServiceNowClient(instance_url=None if demo_mode else os.environ.get("SNOW_INSTANCE"), use_env=not demo_mode)
 
     # Fetch incident details to include in PR titles
