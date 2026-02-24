@@ -1,0 +1,41 @@
+name: Remediation Orchestrator (Webhook)
+on:
+  repository_dispatch:
+    types: [trigger_remediation]
+
+jobs:
+  orchestrate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write 
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install openai python-dotenv requests 
+      
+      - name: Trigger Orchestrator
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SNOW_INSTANCE: ${{ secrets.SNOW_INSTANCE }}
+          SNOW_USER: ${{ secrets.SNOW_USER }}
+          SNOW_PASS: ${{ secrets.SNOW_PASS }}
+        run: |
+          incident_number="${{ github.event.client_payload.incident_number }}"
+          if [ -z "$incident_number" ]; then
+            echo "[-] Error: No incident_number provided in webhook payload."
+            exit 1
+          fi
+          
+          echo "[*] Received Webhook for Incident: $incident_number"
+          python main.py --mode real --incident "$incident_number"
