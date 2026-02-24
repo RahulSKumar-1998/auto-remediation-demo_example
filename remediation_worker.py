@@ -54,16 +54,45 @@ Please provide a code snippet fixing this issue. Output the suggested fix in Mar
     except Exception as e:
         return f"> **Error generating fix with Copilot**: {str(e)}"
 
-def post_github_comment(pr_number: str, body: str):
-    """Uses GitHub CLI to post a comment to the PR."""
+import requests
+
+def post_github_comment(pr_url_or_number: str, body: str):
+    """Posts a comment to the PR, falling back to REST API if gh CLI is missing."""
+    print(f"[*] Attempting to post comment...")
+    
+    # Try GH CLI first
     try:
-        subprocess.run(["gh", "pr", "comment", pr_number, "--body", body], check=True)
-        print(f"[+] Posted comment to PR #{pr_number}")
-    except (subprocess.CalledProcessError, FileNotFoundError) as e:
-        print(f"[-] Failed to post comment: {e}")
-        # Note: In a real CI environment, `gh` is available, but running locally it might not be.
+        subprocess.run(["gh", "pr", "comment", pr_url_or_number, "--body", body], check=True, capture_output=True)
+        print(f"[+] Posted comment via GH CLI")
+        return
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pass
+
+    # Fallback to REST API
+    token = os.environ.get("GITHUB_TOKEN")
+    if not token or not "github.com" in pr_url_or_number.lower():
         safe_body = body.encode('ascii', errors='replace').decode('ascii')
         print(f"[-] Dropping comment for dry-run viewing:\n{safe_body}\n---")
+        return
+
+    try:
+        # Extract repo and PR number from URL: https://github.com/owner/repo/pull/12
+        parts = pr_url_or_number.split('/')
+        repo_owner_name = f"{parts[-4]}/{parts[-3]}"
+        pr_number = parts[-1]
+        
+        api_url = f"https://api.github.com/repos/{repo_owner_name}/issues/{pr_number}/comments"
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github.v3+json"
+        }
+        res = requests.post(api_url, headers=headers, json={"body": body})
+        if res.status_code == 201:
+            print(f"[+] Posted comment via REST API to PR #{pr_number}")
+        else:
+            print(f"[-] Failed to post via REST API: {res.status_code} - {res.text}")
+    except Exception as e:
+        print(f"[-] Failed to post comment entirely: {e}")
 
 def main():
     parser = argparse.ArgumentParser(description="Remediation Worker for CI")
