@@ -39,7 +39,16 @@ def run_remediation(incident_number, input_file="sample_blackduck_scan.json", ou
     inc_data = sn_client.get_incident(incident_number)
     incident_name = inc_data.get('short_description', 'Vulnerability Scan') if inc_data else 'Vulnerability Scan'
 
-    # 2. Parse Vulnerabilities
+    # 2. Download scan data from ServiceNow attachment (if available)
+    print(f"[*] Attempting to download scan attachment from ServiceNow incident {incident_number}...")
+    downloaded_file = sn_client.download_attachment(incident_number, save_path="downloaded_scan.json")
+    if downloaded_file:
+        input_file = downloaded_file
+        print(f"[+] Using scan data from ServiceNow attachment: {input_file}")
+    else:
+        print(f"[~] No attachment found. Falling back to local file: {input_file}")
+
+    # 3. Parse Vulnerabilities
     print(f"[*] Parsing input file: {input_file}")
     try:
         bd_parser = BlackDuckParser()
