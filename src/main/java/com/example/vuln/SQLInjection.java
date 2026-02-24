@@ -10,3 +10,4 @@ public class SQLInjection {
         Database.executeQuery(query);
     }
 }
+// Trigger Scan
