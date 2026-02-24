@@ -27,6 +27,6 @@ jobs:
       
       - name: Run Auto-Remediation Script
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.COPILOT_API_TOKEN }}
         run: |
           python remediation_worker.py --mode fixes --pr-url ${{ github.event.pull_request.html_url }}
