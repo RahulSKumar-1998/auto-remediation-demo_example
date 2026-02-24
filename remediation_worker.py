@@ -60,17 +60,7 @@ def post_github_comment(pr_url_or_number: str, body: str):
     """Posts a comment to the PR, falling back to REST API if gh CLI is missing."""
     print(f"[*] Attempting to post comment...")
     
-    # Try GH CLI first
-    try:
-        proc = subprocess.run(["gh", "pr", "comment", pr_url_or_number, "--body", body], check=True, capture_output=True, text=True)
-        print(f"[+] Posted comment via GH CLI")
-        return
-    except subprocess.CalledProcessError as e:
-        print(f"[-] GH CLI Failed: {e.stderr}")
-    except FileNotFoundError:
-        print(f"[-] GH CLI not found, falling back to REST API...")
-
-    # Fallback to REST API
+    # Fallback to REST API always for strict error logging
     token = os.environ.get("GITHUB_TOKEN")
     if not token or not "github.com" in pr_url_or_number.lower():
         safe_body = body.encode('ascii', errors='replace').decode('ascii')
