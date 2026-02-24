@@ -90,6 +90,55 @@ class ServiceNowClient:
             print(f"[-] Error creating incident: {e}")
             return None
 
+    def download_attachment(self, incident_number: str, save_path: str = "downloaded_scan.json") -> Optional[str]:
+        """Downloads the first JSON attachment from an incident. Returns local file path or None."""
+        if not self.valid:
+            print(f"[DEMO] Would download attachment from '{incident_number}'")
+            return None
+
+        # 1. Get incident sys_id
+        inc_data = self.get_incident(incident_number)
+        if not inc_data or 'sys_id' not in inc_data:
+            print(f"[-] Could not find incident {incident_number} to download attachment.")
+            return None
+
+        sys_id = inc_data['sys_id']
+
+        # 2. Query attachments for this incident
+        url = f"{self.instance_url}/api/now/attachment?sysparm_query=table_name=incident^table_sys_id={sys_id}"
+        headers = {"Accept": "application/json"}
+
+        try:
+            resp = requests.get(url, auth=(self.user, self.password), headers=headers)
+            if resp.status_code != 200:
+                print(f"[-] Failed to list attachments: {resp.status_code}")
+                return None
+
+            attachments = resp.json().get('result', [])
+            # Find the first JSON attachment
+            json_attachment = next((a for a in attachments if a.get('file_name', '').endswith('.json')), None)
+
+            if not json_attachment:
+                print(f"[~] No JSON attachment found on {incident_number}.")
+                return None
+
+            # 3. Download the file content
+            download_url = json_attachment.get('download_link')
+            print(f"[*] Downloading attachment: {json_attachment['file_name']}...")
+            dl_resp = requests.get(download_url, auth=(self.user, self.password))
+
+            if dl_resp.status_code == 200:
+                with open(save_path, 'wb') as f:
+                    f.write(dl_resp.content)
+                print(f"[+] Attachment saved to: {save_path}")
+                return save_path
+            else:
+                print(f"[-] Failed to download attachment: {dl_resp.status_code}")
+                return None
+        except Exception as e:
+            print(f"[-] Error downloading attachment: {e}")
+            return None
+
     def attach_file(self, incident_number: str, file_path: str) -> bool:
         """Uploads a file to the ServiceNow incident."""
         if not self.valid:
