@@ -41,7 +41,7 @@ def run_remediation(incident_number, input_file="sample_blackduck_scan.json", ou
 
     # 2. Download scan data from ServiceNow attachment (if available)
     print(f"[*] Attempting to download scan attachment from ServiceNow incident {incident_number}...")
-    downloaded_file = sn_client.download_attachment(incident_number, save_path="downloaded_scan.json")
+    downloaded_file = sn_client.download_attachment(incident_number, save_path="sample_blackduck_scan.json")
     if downloaded_file:
         input_file = downloaded_file
         print(f"[+] Using scan data from ServiceNow attachment: {input_file}")
